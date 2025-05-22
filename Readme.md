@@ -25,7 +25,7 @@ This project contains Ansible playbooks and related files to automate Docker ins
 2. Run the playbook:
 
      ```sh
-     ansible-playbook -i inventory playbook.yml
+     ansible-playbook -i inventory.ini playbook.yml
      ```
 
 ## Requirements
