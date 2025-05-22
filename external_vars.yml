@@ -1,0 +1,18 @@
+conflicting_packages:
+  - docker.io
+  - docker-doc 
+  - docker-compose
+  - docker-compose-v2
+  - podman-docker 
+  - containerd 
+  - runc
+requirements:
+  - ca-certificates
+  - curl
+docker_gpg_key_url: "https://download.docker.com/linux/ubuntu/gpg"
+docker_packages:
+  - docker-ce
+  - docker-ce-cli 
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-compose-plugin

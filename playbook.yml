@@ -1,0 +1,97 @@
+---
+# Playbook to install Docker on hosts
+- hosts: docker
+  become: yes
+  vars_files:
+    - external_vars.yml
+
+  tasks:
+    - name: Check if the host is Ubuntu
+      set_fact:
+        is_ubuntu: "{{ ansible_facts['distribution'] == 'Ubuntu' }}"
+
+    - name: Debug message if Ubuntu
+      debug:
+        msg: "This is an {{ ansible_distribution }} {{ ansible_distribution_release }} {{ ansible_distribution_version }} {{ ansible_architecture }} host!"
+      when: is_ubuntu
+    
+    - name: Remove conflicting packages
+      apt:
+        pkg: "{{ item }}"
+        state: absent
+      loop: "{{ conflicting_packages }}"
+      when: is_ubuntu
+      register: remove_conflicting_packages
+      until: remove_conflicting_packages is success
+
+    - name: Update apt repository 
+      apt:
+        update_cache: true
+      when: remove_conflicting_packages is success
+      register: update_apt_cache
+      until: update_apt_cache is success
+
+    - name: Install Requirements
+      apt:
+        pkg: "{{ item }}"
+        state: present
+        update_cache: true
+      loop: "{{ requirements }}"
+      when: update_apt_cache is success
+      register: install_requirements
+      until: install_requirements is success
+
+    - name: Create a directory for Docker's GPG key
+      file:
+        path: /etc/apt/trusted.gpg.d
+        state: directory
+        mode: '0755'
+      when: install_requirements is success
+      register: create_gpg_dir
+      until: create_gpg_dir is success
+
+    - name: Check if Docker's GPG key file exists
+      stat:
+        path: /etc/apt/trusted.gpg.d/docker.asc
+      when: create_gpg_dir is success
+      register: check_dockerkeyfile
+      until: check_dockerkeyfile is success
+
+    - name: Add Docker's GPG key
+      shell: |
+        curl -o /etc/apt/trusted.gpg.d/docker.asc "{{ docker_gpg_key_url }}"
+        chmod 0644 /etc/apt/trusted.gpg.d/docker.asc
+      when: not check_dockerkeyfile.stat.exists
+      register: add_dockerkeyfile
+      until: add_dockerkeyfile is success
+
+    - name: Add Docker's repository
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+        filename: docker
+        state: present
+        update_cache: true
+      when: add_dockerkeyfile is success
+      register: add_dockerrepo
+      until: add_dockerrepo is success
+    
+    - name: Install Docker
+      apt:
+        pkg: "{{ item }}"
+        state: present
+        update_cache: true
+      loop: "{{ docker_packages }}"
+      when: add_dockerrepo is success
+      register: install_docker
+      until: install_docker is success
+
+    - name: Add user to docker group
+      user:
+        name: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+        state: present
+      when: install_docker is success
+      register: add_user_to_docker_group
+      until: add_user_to_docker_group is success
